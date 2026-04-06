@@ -223,8 +223,7 @@ class MIST_OC_App(QMainWindow):
                     ("Comb_Q", self.ml_data.get("Comb_c2", 0)),
                     ("Comb_Amp", self.ml_data.get("Comb_A", 0)),
                     ("Comb_Per_yr", self.ml_data.get("Comb_P3_yr", 0)),
-                    ("Comb_Per_Err", self.ml_data.get("Comb_P3_err", 0)),
-                    
+                    ("Comb_Per_Err", self.ml_data.get("Comb_P3_err", 0)),                    
                     ("RMS_Error", self.ml_data.get("RMS", 0))
                 ]
                 data = {"Parameter": [k for k,v in data_list], "Value": [v for k,v in data_list]}
@@ -233,56 +232,70 @@ class MIST_OC_App(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Could not save: {e}")
     def export_ml_data(self):
-        if not self.ml_data:
-            QMessageBox.warning(self, "Warning", "No analysis data. Calculate first.")
+        if not self.ml_data or self.ml_data.get("RMS_Par") == 0:
+            QMessageBox.warning(self, "Warning", "Please click 'Calculate' first to generate the fit!")
             return            
-        items = ("0: Parabola", "1: Sinusoid", "2: Par+Sin (Combined)")
-        item, ok = QInputDialog.getItem(self, "Select Label", "Choose the classification for this star:", items, 2, False)
+        items = ("0: Parabolic", "1: Sinusoidal", "2: Combined")
+        item, ok = QInputDialog.getItem(self, "Select Label", "Choose the classification for this star:", items, 0, False)
         
         if ok and item:
             selected_label = int(item.split(":")[0])
-            ml_file = "MIST_ML_Training_Data.csv"
+            ml_file = "MIST_Master_Dataset.csv"            
+            q_val = self.ml_data.get("Q_val", 0)
+            q_err = self.ml_data.get("Q_err", 1e-9) if self.ml_data.get("Q_err", 0) != 0 else 1e-9
+            q_sig = abs(q_val / q_err)            
+            sin_amp = self.ml_data.get("Sin_A", 0)
+            sin_amp_err = self.ml_data.get("Sin_A_err", 1e-9) if self.ml_data.get("Sin_A_err", 0) != 0 else 1e-9
+            sin_amp_sig = sin_amp / sin_amp_err            
+            time_span_days = self.ml_data.get("Time_Span_Days", 0)
+            time_span_yr = time_span_days / 365.25
+            sin_per = self.ml_data.get("Sin_P3_yr", 1e-9) if self.ml_data.get("Sin_P3_yr", 0) != 0 else 1e-9
+            coverage = time_span_yr / sin_per
+            rms_par = self.ml_data.get("RMS_Par", 1e-9)
+            rms_sin = self.ml_data.get("RMS_Sin", 1e-9)
+            rms_comb = self.ml_data.get("RMS_Comb", 1e-9)            
+            ratio_sin_par = rms_sin / rms_par if rms_par > 0 else 0
+            ratio_comb_sin = rms_comb / rms_sin if rms_sin > 0 else 0
             new_row = {
                 "Star_ID": self.ml_data.get("Filename", "Unknown"),
-                "T0": self.ml_data.get("T0_input", 0),
-                "P0": self.ml_data.get("P_input", 0),
-                "RMS_Error": self.ml_data.get("RMS", 0),
-                "Label": selected_label
-            }            
-            if selected_label == 0: 
-                new_row["Q_coeff"] = self.ml_data.get("Q_val", 0) 
-                new_row["Q_err"] = self.ml_data.get("Q_err", 0)
-                new_row["LITE_Amp"] = 0
-                new_row["LITE_Per_yr"] = 0
-                
-            elif selected_label == 1: 
-                new_row["Q_coeff"] = 0
-                new_row["Q_err"] = 0
-                new_row["LITE_Amp"] = self.ml_data.get("Sin_A", 0)
-                new_row["LITE_Amp_err"] = self.ml_data.get("Sin_A_err", 0)
-                new_row["LITE_Per_yr"] = self.ml_data.get("Sin_P3_yr", 0)
-                
-            elif selected_label == 2: 
-                new_row["Q_coeff"] = self.ml_data.get("Comb_c2", 0)
-                new_row["Q_err"] = self.ml_data.get("Comb_c2_err", 0)
-                new_row["LITE_Amp"] = self.ml_data.get("Comb_A", 0)
-                new_row["LITE_Amp_err"] = self.ml_data.get("Comb_A_err", 0)
-                new_row["LITE_Per_yr"] = self.ml_data.get("Comb_P3_yr", 0)
-            if new_row["Q_coeff"] != 0:
-                new_row["P_dot_sec_yr"] = 2 * new_row["Q_coeff"] * (365.25 / new_row["P0"]) * 86400
-            else:
-                new_row["P_dot_sec_yr"] = 0
+                "T0_Input": self.ml_data.get("T0_input", 0),
+                "P0_Input": self.ml_data.get("P_input", 0),
+                "Points_Count": self.ml_data.get("Points_Count", 0),
+                "Time_Span_Yr": time_span_yr,
+                "RMS_Par": rms_par,
+                "Q_Val": q_val,
+                "Q_Err": q_err,            
+                "Q_Sig": q_sig,
+                "RMS_Sin": rms_sin,
+                "Sin_Amp": sin_amp,
+                "Sin_Amp_Err": sin_amp_err,      
+                "Sin_Amp_Sig": sin_amp_sig,
+                "Sin_Per": sin_per,
+                "Sin_Per_Err": self.ml_data.get("Sin_P3_err", 0), 
+                "Coverage_Ratio": coverage,
+                "RMS_Comb": rms_comb,                
+                "Comb_Q": self.ml_data.get("Comb_c2", 0),
+                "Comb_Q_Err": self.ml_data.get("Comb_c2_err", 0),                 
+                "Comb_Amp": self.ml_data.get("Comb_A", 0),
+                "Comb_Amp_Err": self.ml_data.get("Comb_A_err", 0),                 
+                "Comb_Per": self.ml_data.get("Comb_P3_yr", 0),
+                "Comb_Per_Err": self.ml_data.get("Comb_P3_err", 0), 
+                "Ratio_Sin_Par": ratio_sin_par,
+                "Ratio_Comb_Sin": ratio_comb_sin,
+                "LABEL": selected_label
+            }
             try:
                 if os.path.exists(ml_file):
                     df_ml = pd.read_csv(ml_file)
+                    df_ml = df_ml[df_ml["Star_ID"] != new_row["Star_ID"]]                     
                     df_new = pd.DataFrame([new_row])
                     df_ml = pd.concat([df_ml, df_new], ignore_index=True)
                 else:
-                    df_ml = pd.DataFrame([new_row])   
+                    df_ml = pd.DataFrame([new_row])                
                 df_ml.to_csv(ml_file, index=False)            
-                QMessageBox.information(self, "ML Export", f"Saved correctly for label: {item}\nP3 Used: {new_row['LITE_Per_yr']:.2f} yr")
+                QMessageBox.information(self, "Success", f"Star {new_row['Star_ID']} added successfully!\nLabel: {selected_label}")
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Export failed: {e}")
+                QMessageBox.critical(self, "Error", f"Could not save file: {e}")
     def parabola(self, x, a, b, c): return a*x**2 + b*x + c
     def sine_wave(self, x, A, P_cyc, phase, offset): return A * np.sin(2 * np.pi * x / P_cyc + phase) + offset    
     def combined_model(self, x, c2, c1, c0, A, P_cyc, phi):
@@ -369,8 +382,7 @@ class MIST_OC_App(QMainWindow):
                 label_res = "Res(Par)"
         if show_sin:
             y_sine = self.sine_wave(x_line, *self.last_sin_params)
-            self.canvas.ax_top.plot(x_line, y_sine, color=c_sin, linestyle='-', linewidth=1.5, label='Sinusoid')
-            
+            self.canvas.ax_top.plot(x_line, y_sine, color=c_sin, linestyle='-', linewidth=1.5, label='Sinusoid')            
             res_s = oc - self.sine_wave(ep, *self.last_sin_params)
             rms_sin = np.sqrt(np.mean(res_s**2))            
             if rms_sin < min_rms:
@@ -413,101 +425,114 @@ class MIST_OC_App(QMainWindow):
             p_val = float(self.input_p.text())
         except ValueError:
             QMessageBox.warning(self, "Warning", "Check T0 and P values.")
-            return        
+            return                
         ep, oc, w = self.get_epoch_oc(t0_val, p_val) 
         idx = np.argsort(ep)
         epochs_sorted = ep[idx]
         ocs_sorted = oc[idx]
         w_s = w[idx]
+        time_span_days = (max(epochs_sorted) - min(epochs_sorted)) * p_val
+        n_points = len(epochs_sorted)        
         self.ml_data = {
             "T0_input": t0_val, "P_input": p_val,
-            "Q_val": 0, "Q_err": 0, "P_dot": 0, "P_dot_err": 0,
-            "A_val": 0, "A_err": 0, "P3_yr": 0, "P3_err": 0, "RMS": 0,
+            "Time_Span_Days": time_span_days,
+            "Points_Count": n_points,
+            "Q_val": 0, "Q_err": 0, "P_dot": 0, "P_dot_err": 0, "RMS_Par": 0,
+            "A_val": 0, "A_err": 0, "P3_yr": 0, "P3_err": 0, "RMS_Sin": 0,
+            "Comb_c2": 0, "Comb_A": 0, "Comb_P3_yr": 0, "RMS_Comb": 0,
             "Filename": os.path.basename(self.filename) if self.filename else "Unknown"
         }
+
         self.text_result.append("\n" + "="*40)
         self.text_result.append("   ASTROPHYSICAL PARAMETERS CALCULATION")
         self.text_result.append("="*40)        
-        if hasattr(self, 'toolbar'):
-            show_par = self.toolbar.act_par.isChecked()
-            show_sin = self.toolbar.act_sin.isChecked()
-        else: show_par, show_sin = True, True
-        if show_par:
-            try:            
-                p_par, pcov_par = curve_fit(self.parabola, epochs_sorted, ocs_sorted, sigma=w_s, absolute_sigma=False)
-                self.last_par_params = p_par
-                c2, c1, c0 = p_par
-                err_par = np.sqrt(np.diag(pcov_par))
-                p_dot = 2 * c2
-                p_dot_sec_yr = p_dot * (365.25 / p_val) * 86400
-                p_dot_err = 2 * err_par[0] * (365.25 / p_val) * 86400
-                self.ml_data["Q_val"] = c2; self.ml_data["Q_err"] = err_par[0]
-                self.ml_data["P_dot"] = p_dot_sec_yr; self.ml_data["P_dot_err"] = p_dot_err
-                self.text_result.append(">> MODEL A: PARABOLIC")
-                self.text_result.append(f"Q (c2): {c2:.3e} ± {err_par[0]:.3e}")
-                self.text_result.append(f"P_dot : {p_dot_sec_yr:.4f} ± {p_dot_err:.4f} sec/year")
-                self.text_result.append("-" * 30)
-            except:
-                self.text_result.append("Parabolic Fit Failed")        
-        if show_sin:
-            try:
-                data_span = max(epochs_sorted) - min(epochs_sorted)
-                amp_guess = (max(ocs_sorted) - min(ocs_sorted)) / 2
-                guess_periods = [data_span * 0.8, data_span * 1.5, data_span * 2.5, 5000]            
-                best_rss = float('inf'); best_params = [0, 1, 0, 0]; best_cov = None
-                for p_guess in guess_periods:
-                    try:
-                        p0 = [amp_guess, p_guess, 0, 0]
-                        t_params, t_cov = curve_fit(self.sine_wave, epochs_sorted, ocs_sorted, 
-                                                    sigma=w_s, p0=p0, maxfev=5000,
-                                                    bounds=([0, 100, -np.pi, -np.inf], [np.inf, data_span*5, np.pi, np.inf]))                    
-                        res = ocs_sorted - self.sine_wave(epochs_sorted, *t_params)
-                        rss = np.sum(res**2)
-                        if rss < best_rss:
-                            best_rss = rss; best_params = t_params; best_cov = t_cov
-                    except: continue            
-                A, P_mod_cyc, phi, off = best_params            
-                self.last_sin_params = best_params
-                if best_cov is not None:
-                    err_sin = np.sqrt(np.diag(best_cov))
-                    A_err = err_sin[0]; P_mod_err = err_sin[1]
-                else: A_err = 0.0; P_mod_err = 0.0
-                P_mod_year = (P_mod_cyc * p_val) / 365.25
-                P_mod_year_err = (P_mod_err * p_val) / 365.25
-                self.ml_data["Sin_A"] = A; self.ml_data["Sin_A_err"] = A_err
-                self.ml_data["Sin_P3_yr"] = P_mod_year; self.ml_data["Sin_P3_err"] = P_mod_year_err 
-                self.text_result.append(">> MODEL B: SINUSOIDAL")
-                self.text_result.append(f"Amp (A) : {A:.5f} ± {A_err:.5f} d")
-                self.text_result.append(f"Per (P) : {P_mod_year:.2f} ± {P_mod_year_err:.2f} yr")
-                self.text_result.append(f"Phase   : {phi:.4f} rad")
-                self.text_result.append(f"Offset  : {off:.5f} d")
-                self.text_result.append("="*40)
-            except Exception as e:
-                self.text_result.append(f"Sinusoidal Fit Failed: {e}")
+        try:            
+            p_par, pcov_par = curve_fit(self.parabola, epochs_sorted, ocs_sorted, sigma=w_s, absolute_sigma=False)
+            self.last_par_params = p_par
+            c2, c1, c0 = p_par
+            err_par = np.sqrt(np.diag(pcov_par))
+            res_p = ocs_sorted - self.parabola(epochs_sorted, *p_par)
+            rms_p = np.sqrt(np.mean(res_p**2))            
+            p_dot = 2 * c2
+            p_dot_sec_yr = p_dot * (365.25 / p_val) * 86400
+            p_dot_err = 2 * err_par[0] * (365.25 / p_val) * 86400
+            self.ml_data["Q_val"] = c2; self.ml_data["Q_err"] = err_par[0]
+            self.ml_data["P_dot"] = p_dot_sec_yr; self.ml_data["P_dot_err"] = p_dot_err
+            self.ml_data["RMS_Par"] = rms_p  
+            self.text_result.append(">> MODEL A: PARABOLIC")
+            self.text_result.append(f"Q (c2): {c2:.3e} ± {err_par[0]:.3e}")
+            self.text_result.append(f"P_dot : {p_dot_sec_yr:.4f} ± {p_dot_err:.4f} sec/year")
+            self.text_result.append("-" * 30)
+        except:
+            self.text_result.append("Parabolic Fit Failed")        
+        try:
+            data_span = max(epochs_sorted) - min(epochs_sorted)
+            amp_guess = (max(ocs_sorted) - min(ocs_sorted)) / 2
+            guess_periods = [data_span * 0.8, data_span * 1.5, data_span * 2.5, 5000]            
+            best_rss = float('inf'); best_params = [0, 1, 0, 0]; best_cov = None            
+            for p_guess in guess_periods:
+                try:
+                    p0 = [amp_guess, p_guess, 0, 0]
+                    t_params, t_cov = curve_fit(self.sine_wave, epochs_sorted, ocs_sorted, 
+                                                sigma=w_s, p0=p0, maxfev=5000,
+                                                bounds=([0, 100, -np.pi, -np.inf], [np.inf, data_span*5, np.pi, np.inf]))                    
+                    res = ocs_sorted - self.sine_wave(epochs_sorted, *t_params)
+                    rss = np.sum(res**2)
+                    if rss < best_rss:
+                        best_rss = rss; best_params = t_params; best_cov = t_cov
+                except: continue                        
+            A, P_mod_cyc, phi, off = best_params            
+            self.last_sin_params = best_params            
+            res_s = ocs_sorted - self.sine_wave(epochs_sorted, *best_params)
+            rms_s = np.sqrt(np.mean(res_s**2))
+            if best_cov is not None:
+                err_sin = np.sqrt(np.diag(best_cov))
+                A_err = err_sin[0]; P_mod_err = err_sin[1]
+            else: A_err = 0.0; P_mod_err = 0.0            
+            P_mod_year = (P_mod_cyc * p_val) / 365.25
+            P_mod_year_err = (P_mod_err * p_val) / 365.25
+            self.ml_data["Sin_A"] = A; self.ml_data["Sin_A_err"] = A_err
+            self.ml_data["Sin_P3_yr"] = P_mod_year; self.ml_data["Sin_P3_err"] = P_mod_year_err
+            self.ml_data["RMS_Sin"] = rms_s 
+            self.text_result.append(">> MODEL B: SINUSOIDAL")
+            self.text_result.append(f"Amp (A) : {A:.5f} ± {A_err:.5f} d")
+            self.text_result.append(f"Per (P) : {P_mod_year:.2f} ± {P_mod_year_err:.2f} yr")
+            self.text_result.append("="*40)
+        except Exception as e:
+            self.text_result.append(f"Sinusoidal Fit Failed: {e}")
         try:
             if len(self.last_par_params) > 0 and len(self.last_sin_params) > 0:
                 p0_comb = [
                     self.last_par_params[0], self.last_par_params[1], self.last_par_params[2], 
                     self.last_sin_params[0], self.last_sin_params[1], self.last_sin_params[2]
                 ]
-                p_comb, pcov_comb = curve_fit(self.combined_model, epochs_sorted, ocs_sorted, sigma=w_s, p0=p0_comb, maxfev=10000)
+                data_span = max(epochs_sorted) - min(epochs_sorted)
+                lower = [-np.inf, -np.inf, -np.inf, 0, 100, -np.pi]
+                upper = [np.inf, np.inf, np.inf, np.inf, data_span*5, np.pi]
+                p_comb, pcov_comb = curve_fit(self.combined_model, epochs_sorted, ocs_sorted, sigma=w_s, p0=p0_comb, maxfev=10000,bounds=(lower, upper),ftol=1e-8, xtol=1e-8)
                 self.last_comb_params = p_comb
                 cc2, cc1, cc0, cA, cP_cyc, cPhi = p_comb
                 perr = np.sqrt(np.diag(pcov_comb))
+                res_c = ocs_sorted - self.combined_model(epochs_sorted, *p_comb)
+                rms_c = np.sqrt(np.mean(res_c**2))                
                 cP_yr = (cP_cyc * p_val) / 365.25
-                cP_yr_err = (perr[4] * p_val) / 365.25
+                cP_yr_err = (perr[4] * p_val) / 365.25                
                 self.text_result.append("-" * 30)
                 self.text_result.append(">> COMBINED MODEL :")
                 self.text_result.append(f"   Q (c2) : {cc2:.3e} ± {perr[0]:.3e}")
-                self.text_result.append(f"   Amp (A): {cA:.5f} ± {perr[3]:.5f} d")
-                self.text_result.append(f"   Per (P): {cP_yr:.2f} ± {cP_yr_err:.2f} yr")
+                self.text_result.append(f"   Amp (A) : {cA:.5f} ± {perr[3]:.5f} d")
+                self.text_result.append(f"   Per (P): {cP_yr:.2f} ± {cP_yr_err:.2f} yr")                
                 self.ml_data.update({
                     "Comb_c2": cc2,      "Comb_c2_err": perr[0],
                     "Comb_A": cA,        "Comb_A_err": perr[3],
-                    "Comb_P3_yr": cP_yr, "Comb_P3_err": cP_yr_err
+                    "Comb_P3_yr": cP_yr, "Comb_P3_err": cP_yr_err,
+                    "RMS_Comb": rms_c 
                 })
         except Exception as e:
             self.text_result.append(f"Combined Fit Failed: {e}")
+        self.run_manual_plot() 
+        if show_physics:
+             pass
         self.run_manual_plot() 
         if show_physics and (len(self.last_par_params) > 0 or len(self.last_sin_params) > 0 or self.last_comb_params is not None):    
             mass_dlg = MassInputDialog(self)
@@ -560,7 +585,6 @@ class MIST_OC_App(QMainWindow):
                                     self.text_result.append(f"     i={inc}°: {best_m3:.3f} M_sun")
                             else:
                                 self.text_result.append("   Error: Period too small or 0.")
-
                         except Exception as e:
                             self.text_result.append(f"   Calculation Error: {e}")
                     if self.last_comb_params is not None:
@@ -607,7 +631,6 @@ class MIST_OC_App(QMainWindow):
                                     self.ml_data[f"M3_i{inc}"] = best_m3
                             else:
                                 self.text_result.append("   f(m3): Period is too small/zero.")
-
                         except Exception as e:
                             self.text_result.append(f"   3rd Body Error: {e}")
                     self.text_result.append("=" * 40)
@@ -620,7 +643,7 @@ class MIST_OC_App(QMainWindow):
         ep, oc, w = self.get_epoch_oc(t0, p)
         def lin(x, dp, off): return dp*x + off
         try:
-            popt, pcov = curve_fit(lin, ep, oc, sigma=1.0/w, absolute_sigma=False)    
+            popt, pcov = curve_fit(lin, ep, oc, sigma=w, absolute_sigma=False)    
             dP_fit, offset_fit = popt    
             perr = np.sqrt(np.diag(pcov))
             dP_err, offset_err = perr       
