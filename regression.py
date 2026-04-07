@@ -474,7 +474,7 @@ class MIST_OC_App(QMainWindow):
                 try:
                     p0 = [amp_guess, p_guess, 0, 0]
                     t_params, t_cov = curve_fit(self.sine_wave, epochs_sorted, ocs_sorted, 
-                                                sigma=w_s, p0=p0, maxfev=5000,
+                                                sigma=w_s, p0=p0, maxfev=10000,
                                                 bounds=([0, 100, -np.pi, -np.inf], [np.inf, data_span*5, np.pi, np.inf]))                    
                     res = ocs_sorted - self.sine_wave(epochs_sorted, *t_params)
                     rss = np.sum(res**2)
@@ -506,10 +506,7 @@ class MIST_OC_App(QMainWindow):
                     self.last_par_params[0], self.last_par_params[1], self.last_par_params[2], 
                     self.last_sin_params[0], self.last_sin_params[1], self.last_sin_params[2]
                 ]
-                data_span = max(epochs_sorted) - min(epochs_sorted)
-                lower = [-np.inf, -np.inf, -np.inf, 0, 100, -np.pi]
-                upper = [np.inf, np.inf, np.inf, np.inf, data_span*5, np.pi]
-                p_comb, pcov_comb = curve_fit(self.combined_model, epochs_sorted, ocs_sorted, sigma=w_s, p0=p0_comb, maxfev=10000,bounds=(lower, upper),ftol=1e-8, xtol=1e-8)
+                p_comb, pcov_comb = curve_fit(self.combined_model, epochs_sorted, ocs_sorted, sigma=w_s, p0=p0_comb, maxfev=20000)
                 self.last_comb_params = p_comb
                 cc2, cc1, cc0, cA, cP_cyc, cPhi = p_comb
                 perr = np.sqrt(np.diag(pcov_comb))
