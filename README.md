@@ -32,7 +32,7 @@ Developed as part of an Astrophysics M.Sc. thesis, this tool assists in identify
 Install the required libraries using the `requirements.txt` file:
 # Usage
 * Run the Tool : python3 regression.py
-* Load Data: Click "Load CSV Data". (The tool expects a standard .csv file. Please refer to the regression.csv file included in this repository for a ready-to-use example.)
+* Load Data: Click "Load CSV Data". (The tool expects a standard .csv file. Please refer to the regression.csv file included in this repository for a ready-to-use example.) Note : The Sigma column is actually a weighting value (10=CCD, 5=good, 3=weak) !! 
 * Set Priors: Enter the initial Reference Epoch (T0) and Period (P) in the input boxes (top left).
 * Use the toolbar buttons to toggle between Parabolic, Sinusoidal, or Combined fit.
 * Click "Calculate Parameters" to derive physical values (Mass Transfer, 3rd Body Mass).
